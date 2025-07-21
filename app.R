@@ -1,3 +1,8 @@
+# TO DO:
+#   - make shiny check files for new info every X seconds
+#   - fix date/time subsetting to reflect the real dataset
+#   - update UI info and images to reflect current experiment
+
 ##############################  GLOBAL  ########################################
 library(plyr)
 library(tidyverse)
@@ -5,7 +10,6 @@ library(data.table)
 library(lubridate)
 library(ggsvg)
 library(glue)
-
 library(shiny)
 library(bslib)
 library(showtext)
@@ -13,6 +17,29 @@ library(thematic)
 
 `%nin%` = Negate(`%in%`)
 
+# habitats in experiment; change as necessary
+habitat_a = "Red Mangrove"
+habitat_b = "Replica Mangrove"
+
+# UI information to display; change as necessary (imgs kept in www folder)
+{
+  # Habitat A
+  hab_a_name = "Rhizophora mangle"
+  hab_a_img <- img(src="RedMangroveWater.jpg", width="300px")
+  # Habitat B
+  hab_b_name = "Plastic"
+  hab_b_img <- img(src="RedMangrove.jpg", width="300px")
+  # Fish
+  fish_sp = "Centropomus undecimalis"
+  fish_cn = "Common Snook"
+  fish_age = "11 months"
+  fish_fl = "10 inches"
+  fish_w = "0.7 pounds"
+  fish_img <- img(src="CommonSnook.jpg", width="400px")
+  snook_svg <- paste(readLines("www/snook.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
+}
+
+# mote branded color choices
 mangrove_green = "#007b41"
 seagrass_green = "#85b034"
 snook_yellow = "#ebcc00"
@@ -20,36 +47,17 @@ otter_brown = "#6d5849"
 shark_gray = "#63666a"
 manatee_gray = "#b1b3b3"
 
+# colors to assign to each habitat; change as necessary
 hab_colors <- c(mangrove_green, manatee_gray)
 
-habitat_a = "Red Mangrove"
-habitat_b = "Replica Mangrove"
+########################## PIT TAG ANTENNA DATA ################################
 
-# ui facts
-{
-  hab_cn = habitat_a
-  hab_sp = "Rhizophora mangle"
-  hab_sp2 = habitat_b
-  hab_cn2 = "Plastic"
-  fish_sp = "Centropomus undecimalis"
-  fish_cn = "Common Snook"
-  fish_age = "11 months"
-  fish_fl = "10 inches"
-  fish_w = "0.7 pounds"
-  fun_fact = "Snook are popular game and food fish."
-}
-
-# current color is fill:#ebcc00 which is snook yellow
-snook_svg <- paste(readLines("www/snook.svg"), collapse = "\n")
-
-#########PIT TAG ANTENNA DATA#########
-#Get the file names of all the raw txt files saved in the folder of data to be imported (change path as necessary)
-
+# Get the file names of all the raw txt files saved in the folder of data to be imported (change path as necessary)
 ORMR.files = list.files(path=paste0("data"), pattern="*.txt", full.names=T)
 
-##### FOR MULTIREADER DATA#####  
-#Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify creek, date, and Antenna
-filenames = as.vector(NA) #create a dummy vector used in the loop
+##### FOR MULTIREADER DATA #####  
+# Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify creek, date, and Antenna
+filenames = as.vector(NA) # create a dummy vector used in the loop
 
 for (i in 1:length(ORMR.files)) {
   file_name = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
@@ -61,9 +69,9 @@ for (i in 1:length(ORMR.files)) {
   assign(file_name, file_df, envir = .GlobalEnv)
 }
 
-#Identify the PIT tag data in each dataframe, merge them, and relabeled columns appropriately
-dflist =as.list(NA) #creates a dummy list that the loop below can fill with all the dataframes
-PITlist = as.list(NA) #creates a dummy list to fill with the PIT tag data within the list of dataframes
+# Identify the PIT tag data in each dataframe, merge them, and relabeled columns appropriately
+dflist =as.list(NA) # creates a dummy list that the loop below can fill with all the dataframes
+PITlist = as.list(NA) # creates a dummy list to fill with the PIT tag data within the list of dataframes
 Errorlist = as.list(NA)
 
 for (i in 1:length(filenames)) {
@@ -72,12 +80,12 @@ for (i in 1:length(filenames)) {
   Errorlist[[i]] = dflist[[i]][which(dflist[[i]]$V1=='E'),]
 }
 
-ORMR.raw = droplevels(rbindlist(PITlist, fill=T)) #Combine the list of dataframes into one dataframe
+ORMR.raw = droplevels(rbindlist(PITlist, fill=T)) # Combine the list of dataframes into one dataframe
 
-ORMR.raw = within(ORMR.raw, rm(V11, V12, V13, V14, V15, V16)) #delete empty columns
+ORMR.raw = within(ORMR.raw, rm(V11, V12, V13, V14, V15, V16)) # delete empty columns
 ORMR.raw = plyr::rename(ORMR.raw, c("V1"="Code", "V2"="Date", "V3"="Time", "V4"="Time_Reference", "V5"="Duration", "V6"="Tag_Type", "V7"="Loop", "V8"="Tag_ID",
-                                    "V9"="Site_Code", "V10"="Effective_Amps")) #rename the columns
-###NOTE that Number consecutive detections seems to be missing (between 9 and 10)
+                                    "V9"="Site_Code", "V10"="Effective_Amps")) # rename the columns
+# NOTE that Number consecutive detections seems to be missing (between 9 and 10)
 ORMR.raw$Loop = paste(ORMR.raw$Antenna, "-", ORMR.raw$Loop)
 
 ORMR.raw$Date_Time <- ymd_hms(paste(ORMR.raw$Date, ORMR.raw$Time))
@@ -89,6 +97,7 @@ ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
 # start_date <- current_date - 7
 # ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= current_date)
 
+# will need to adjust the loop info to reflect the real setup
 data <- as.data.table(ORMR.raw) %>%
   mutate(
     Bin_Loop = case_when(
@@ -126,7 +135,7 @@ min_per_hour <- data %>%
     )
   ) %>% filter(Total_Min_Detected != 0)
 
-# which habitat is winning, display that color
+# which habitat is winning? display that color based on largest mean
 hab_a_data <- min_per_hour[min_per_hour$Bin_Loop == "A",]
 hab_b_data <- min_per_hour[min_per_hour$Bin_Loop == "B",]
 hab_a_mean <- mean(hab_a_data$Total_Min_Detected)
@@ -134,7 +143,7 @@ hab_b_mean <- mean(hab_b_data$Total_Min_Detected)
 conc_color <- ifelse(hab_a_mean > hab_b_mean, "#007b41", "#63666a")
 conc_text <- ifelse(hab_a_mean > hab_b_mean, habitat_a, habitat_b)
 
-# # Create full grid of all combinations of Bin_Loop × Date × Hour (0–23)
+# # Create full grid of all combinations of Bin_Loop x Date x Hour (0–23)
 # full_grid <- expand.grid(
 #   Bin_Loop = unique(data$Bin_Loop),
 #   Date = unique(data$Date),
@@ -158,20 +167,22 @@ conc_text <- ifelse(hab_a_mean > hab_b_mean, habitat_a, habitat_b)
 
 ##############################  UI  ############################################
 
+# column 1: about the habitats
 card1 <- card(
   div(style = "text-align: center;", h3(strong("Current Experiment"))),
   p(strong("Objective:"), "Determine fish habitat preference by comparing behavior in various environments"),
   br(), #br(),
   div(style = "text-align: center;", h3(strong("About the Habitats"))),
-  p(strong("Species:"), em(hab_sp)),
-  p(strong("Common Name: "), hab_cn),
-  div(style = "text-align: center", img(src="RedMangroveWater.jpg", width="300px")),
+  p(strong("Species:"), em(hab_a_name)),
+  p(strong("Common Name: "), habitat_a),
+  div(style = "text-align: center", hab_a_img),
   br(),
-  p(strong("Type:"), hab_sp2),
-  p(strong("Material: "), hab_cn2),
-  div(style = "text-align: center", img(src="RedMangrove.jpg", width="300px"))
+  p(strong("Type:"), habitat_b),
+  p(strong("Material: "), hab_b_name),
+  div(style = "text-align: center", hab_b_img)
 )
 
+# column 2: all plots
 card2 <- card(
   card_body(
     max_height=225,
@@ -185,20 +196,21 @@ card2 <- card(
   )
 )
 
+# column 3: about the fish
 card3 <- card(
   #card_body(
     #max_height=540,
     div(style = "text-align: center;", h3(strong("About the Fish"))),
-    div(style = "text-align: center", img(src="CommonSnook.jpg", width="300px")),
+    div(style = "text-align: center", fish_img),
     p(strong("Species:"), em(fish_sp)),
     p(strong("Common Name: "), fish_cn),
     p(strong("Age: "), fish_age),
     p(strong("Fork Length: "), fish_fl),
-    p(strong("Weight: "), fish_w)#,
-    #h4(em("Fun Fact")), fun_fact
+    p(strong("Weight: "), fish_w)
   #)
 )
 
+# column 3: conclusions so far
 card4 <- card(
   card_body_fill = TRUE,
   style = glue("background-color: {conc_color}; color: white;"),
@@ -212,6 +224,7 @@ card4 <- card(
   )
 )
 
+# automatically adjust ggplot themes
 thematic::thematic_shiny(font="auto")
 
 # theme <- bs_theme(
@@ -246,6 +259,7 @@ ui <- page_fillable(
 server <- function(input, output) {
   #bs_themer()
   
+  # use last detection for the slider
   last_detection <- last(data$Habitat)
   if (last_detection == habitat_a){
     x = 2
@@ -254,6 +268,7 @@ server <- function(input, output) {
   }
   detect_df <- data.table(x=x, y=1.25, svg=snook_svg)
   
+  # slider: where was the fish last detected
   output$prefer <- renderPlot({
     ggplot(detect_df) +
       geom_point(aes(x=1,y=1), color="transparent") +
@@ -285,6 +300,7 @@ server <- function(input, output) {
             panel.background = element_blank())
   })
   
+  # box plots for time spent occupying each habitat
   output$box_time <- renderPlot({
     ggplot(min_per_hour) +
       geom_boxplot(aes(x=Day_Night, y=Total_Min_Detected, color=Habitat), fill=NA, linewidth=1.5) +
@@ -306,6 +322,7 @@ server <- function(input, output) {
       )
   })
   
+  # line graph for time spent occupying each habitat
   output$line_time <- renderPlot({
     ggplot(min_per_hour) +
       geom_line(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat), linewidth=1.5) +
@@ -328,6 +345,7 @@ server <- function(input, output) {
       )
   })
   
+  # conclusions text
   output$hab_pref <- renderText({
     paste0("This fish prefers the ", tolower(conc_text), " habitat.")
   })
