@@ -8,7 +8,8 @@ library(plyr)
 library(tidyverse)
 library(data.table)
 library(lubridate)
-library(ggsvg)
+#library(ggsvg)
+library(ggimage)
 library(glue)
 library(shiny)
 library(bslib)
@@ -28,7 +29,7 @@ habitat_b = "Replica Mangrove"
   hab_a_img <- img(src="RedMangroveWater.jpg", width="300px")
   # Habitat B
   hab_b_name = "Plastic"
-  hab_b_img <- img(src="RedMangrove.jpg", width="300px")
+  hab_b_img <- img(src="Replica_Mangrove.jpg", width="280px")
   # Fish
   fish_sp = "Centropomus undecimalis"
   fish_cn = "Common Snook"
@@ -36,13 +37,19 @@ habitat_b = "Replica Mangrove"
   fish_fl = "10 inches"
   fish_w = "0.7 pounds"
   fish_img <- img(src="CommonSnook.jpg", width="400px")
-  snook_svg <- paste(readLines("www/snook.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
+  detection_image <- "www/snook_yellow.png"
+  #snook_svg <- paste(readLines("www/snook-old.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
 }
 
 # mote branded color choices
+abyssal_blue = "#003041"
+gulf_teal = "#00798c"
+turquoise_bay = "#00ae9d"
+estuary_green = "#638a63"
 mangrove_green = "#007b41"
 seagrass_green = "#85b034"
 snook_yellow = "#ebcc00"
+sandbar_beige = "#c6b8a6"
 otter_brown = "#6d5849"
 shark_gray = "#63666a"
 manatee_gray = "#b1b3b3"
@@ -173,8 +180,8 @@ card1 <- card(
   p(strong("Objective:"), "Determine fish habitat preference by comparing behavior in various environments"),
   br(), #br(),
   div(style = "text-align: center;", h3(strong("About the Habitats"))),
-  p(strong("Species:"), em(hab_a_name)),
   p(strong("Common Name: "), habitat_a),
+  p(strong("Species:"), em(hab_a_name)),
   div(style = "text-align: center", hab_a_img),
   br(),
   p(strong("Type:"), habitat_b),
@@ -202,8 +209,8 @@ card3 <- card(
     #max_height=540,
     div(style = "text-align: center;", h3(strong("About the Fish"))),
     div(style = "text-align: center", fish_img),
-    p(strong("Species:"), em(fish_sp)),
     p(strong("Common Name: "), fish_cn),
+    p(strong("Species:"), em(fish_sp)),
     p(strong("Age: "), fish_age),
     p(strong("Fork Length: "), fish_fl),
     p(strong("Weight: "), fish_w)
@@ -227,17 +234,9 @@ card4 <- card(
 # automatically adjust ggplot themes
 thematic::thematic_shiny(font="auto")
 
-# theme <- bs_theme(
-#   version = 5,
-#   bg = "#023f88",
-#   fg = "rgb(255, 255, 255)",
-#   bootswatch = "superhero"
-#   #primary = "#0054a6",
-#   #secondary = "#00aae7"
-# )
 
 ui <- page_fillable(
-  theme = bs_theme(version=5, bootswatch = "superhero"), #theme,
+  theme = bs_theme(version=5, bootswatch = "superhero", bg=abyssal_blue, fg="#ffffff"), #theme,
   #input_dark_mode(),
   
   div(style = "text-align: center;", h1(strong("Fisheries Ecology & Enhancement:"), "Habitat Choice Experiment")),
@@ -266,7 +265,7 @@ server <- function(input, output) {
   } else if (last_detection == habitat_b) {
     x = 8
   }
-  detect_df <- data.table(x=x, y=1.25, svg=snook_svg)
+  detect_df <- data.table(x=x, y=1.25) #, svg=snook_svg
   
   # slider: where was the fish last detected
   output$prefer <- renderPlot({
@@ -274,7 +273,8 @@ server <- function(input, output) {
       geom_point(aes(x=1,y=1), color="transparent") +
       geom_point(aes(x=10,y=1), color="transparent") +
       
-      geom_point_svg(aes(x,y, svg=svg), size=60) +
+      #geom_point_svg(aes(x,y, svg=svg), size=60) +
+      geom_image(aes(x,y, image=detection_image), size=2) +
       geom_segment(aes(x=x, xend=x, y=-0.2, yend=0.2), linewidth=1.5) +
       
       geom_segment(aes(x=0.5, xend=10.5, y=0, yend=0), linewidth=1.5) +
