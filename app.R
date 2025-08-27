@@ -147,7 +147,7 @@ hab_a_data <- min_per_hour[min_per_hour$Bin_Loop == "A",]
 hab_b_data <- min_per_hour[min_per_hour$Bin_Loop == "B",]
 hab_a_mean <- mean(hab_a_data$Total_Min_Detected)
 hab_b_mean <- mean(hab_b_data$Total_Min_Detected)
-conc_color <- ifelse(hab_a_mean > hab_b_mean, "#007b41", "#63666a")
+conc_color <- ifelse(hab_a_mean > hab_b_mean, hab_colors[[1]], hab_colors[[2]])
 conc_text <- ifelse(hab_a_mean > hab_b_mean, habitat_a, habitat_b)
 
 # # Create full grid of all combinations of Bin_Loop x Date x Hour (0–23)
@@ -233,7 +233,6 @@ card4 <- card(
 
 # automatically adjust ggplot themes
 thematic::thematic_shiny(font="auto")
-
 
 ui <- page_fillable(
   theme = bs_theme(version=5, bootswatch = "superhero", bg=abyssal_blue, fg="#ffffff"), #theme,
