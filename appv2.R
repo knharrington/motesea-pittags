@@ -26,7 +26,7 @@ habitat_b = "Replica Mangrove"
 {
   # Habitat A
   hab_a_name = "Rhizophora mangle"
-  hab_a_img <- img(src="RedMangroveWater.jpg", width="300px")
+  hab_a_img <- img(src="RedMangroveWater.jpg", width="280px")
   # Habitat B
   hab_b_name = "Plastic"
   hab_b_img <- img(src="Replica_Mangrove.jpg", width="280px")
@@ -36,7 +36,7 @@ habitat_b = "Replica Mangrove"
   fish_age = "11 months"
   fish_fl = "10 inches"
   fish_w = "0.7 pounds"
-  fish_img <- img(src="CommonSnook.jpg", width="400px")
+  fish_img <- img(src="CommonSnook.jpg", width="300px")
   detection_image <- "www/snook_yellow.png"
   #snook_svg <- paste(readLines("www/snook-old.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
 }
@@ -62,13 +62,16 @@ hab_colors <- c(mangrove_green, manatee_gray)
 # column 1: about the habitats
 card1 <- card(
   div(style = "text-align: center;", h3(strong("Current Experiment"))),
-  p(strong("Objective:"), "Determine fish habitat preference by comparing behavior in various environments"),
-  br(), #br(),
+  p(strong("Premise:"), "Mote's stock enhancement research uses mangrove replicates to condition
+    the snook they will stock to use protective habitat in the wild. Here we will test habitat designs
+    and configurations to encourage behaviors that maximize habitat use."),
+  p(strong("Question:"), "Will our snook use artificial habitats as much as real mangroves?"),
+  #br(), #br(),
   div(style = "text-align: center;", h3(strong("About the Habitats"))),
   p(strong("Common Name: "), habitat_a),
   p(strong("Species:"), em(hab_a_name)),
   div(style = "text-align: center", hab_a_img),
-  br(),
+  #br(),
   p(strong("Type:"), habitat_b),
   p(strong("Material: "), hab_b_name),
   div(style = "text-align: center", hab_b_img)
@@ -171,16 +174,16 @@ server <- function(input, output, session) {
     ORMR.raw$Date <- as.POSIXct(ORMR.raw$Date, format="%Y-%m-%d")
     
     # subset for date
-    ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
-    # current_date <- Sys.Date()
-    # start_date <- current_date - 7
-    # ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= current_date)
+    #ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
+    current_date <- Sys.Date()
+    start_date <- current_date - 7
+    ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= current_date)
     
     # Preprocess
     data <- as.data.table(ORMR.raw) %>%
       mutate(
         Bin_Loop = case_when(
-          Loop %in% c("Nursery3 - 0822_1530095941184861", "Nursery3 - A1", "Nursery3 - A2") ~ "A",
+          Loop %in% c("Habitat - A1") ~ "A",
           TRUE ~ "B"),
         Duration_Sec = period_to_seconds(hms(Duration)),
         Duration_Min = Duration_Sec / 60,
@@ -267,10 +270,11 @@ server <- function(input, output, session) {
   output$line_time <- renderPlot({
     df <- dataset()$hourly
     ggplot(df) +
+      geom_point(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat)) +
       geom_line(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat), linewidth=1.5) +
       scale_color_manual(values = hab_colors) +
       
-      scale_x_datetime(date_breaks = "12 hour", date_labels = "%b %d %H") +
+      scale_x_datetime(date_breaks = "1 hour", date_labels = "%b %d %H") +
       ylab("min/hr") +
       
       theme(
