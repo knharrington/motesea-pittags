@@ -6,7 +6,7 @@ Shiny app for real-time monitoring of PIT tag data in an aquarium setting.
 
 ## Current State
 
-The app is not live nor utilizing data from a current experiment. This draft is built on a static dataset resulting from many tagged fishes that were detected by antennas and loops in a natural setting in October 2023. User interface elements regarding both habitats and the fish are arbitrary and were fabricated to demonstrate an example experiment. Files stored in the `data` folder are unavailable for download.
+The app is now live and utilizing data from a current experiment (testing phase).
 
 ## Image Credit
 
