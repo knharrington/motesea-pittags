@@ -1,7 +1,5 @@
 # TO DO:
-#   - make shiny check files for new info every X seconds
-#   - fix date/time subsetting to reflect the real dataset
-#   - update UI info and images to reflect current experiment
+#   - update UI info to reflect current experiment
 
 ##############################  GLOBAL  ########################################
 library(plyr)
@@ -36,7 +34,7 @@ habitat_b = "Replica Mangrove"
   fish_age = "11 months"
   fish_fl = "10 inches"
   fish_w = "0.7 pounds"
-  fish_img <- img(src="CommonSnook.jpg", width="300px")
+  fish_img <- img(src="CommonSnook.jpg", width="280px")
   detection_image <- "www/snook_yellow.png"
   #snook_svg <- paste(readLines("www/snook-old.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
 }
