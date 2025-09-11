@@ -24,10 +24,10 @@ habitat_b = "Replica Mangrove"
 {
   # Habitat A
   hab_a_name = "Rhizophora mangle"
-  hab_a_img <- img(src="RedMangroveWater.jpg", width="280px")
+  hab_a_img <- img(src="RedMangroveWater.jpg", width="250px")
   # Habitat B
   hab_b_name = "Plastic"
-  hab_b_img <- img(src="Replica_Mangrove.jpg", width="280px")
+  hab_b_img <- img(src="Replica_Mangrove.jpg", width="250px")
   # Fish
   fish_sp = "Centropomus undecimalis"
   fish_cn = "Common Snook"
@@ -39,18 +39,28 @@ habitat_b = "Replica Mangrove"
   #snook_svg <- paste(readLines("www/snook-old.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
 }
 
+# data visualizations to display; change as necessary (options: box_time, hab_trans, line_time)
+{
+  title_1 = "Number of Times Fish Switched Habitats"
+  viz_1 = plotOutput("hab_trans")
+  title_2 = "Time Spent Occupying Each Habitat"
+  viz_2 = plotOutput("line_time")
+}
+
 # mote branded color choices
-abyssal_blue = "#003041"
-gulf_teal = "#00798c"
-turquoise_bay = "#00ae9d"
-estuary_green = "#638a63"
-mangrove_green = "#007b41"
-seagrass_green = "#85b034"
-snook_yellow = "#ebcc00"
-sandbar_beige = "#c6b8a6"
-otter_brown = "#6d5849"
-shark_gray = "#63666a"
-manatee_gray = "#b1b3b3"
+{
+  abyssal_blue = "#003041"
+  gulf_teal = "#00798c"
+  turquoise_bay = "#00ae9d"
+  estuary_green = "#638a63"
+  mangrove_green = "#007b41"
+  seagrass_green = "#85b034"
+  snook_yellow = "#ebcc00"
+  sandbar_beige = "#c6b8a6"
+  otter_brown = "#6d5849"
+  shark_gray = "#63666a"
+  manatee_gray = "#b1b3b3"
+}
 
 # colors to assign to each habitat; change as necessary
 hab_colors <- c(mangrove_green, manatee_gray)
@@ -79,13 +89,14 @@ card1 <- card(
 card2 <- card(
   card_body(
     max_height=225,
-    div(style = "text-align: center;", h3(strong("Where was the fish last detected?"))),
-    plotOutput("prefer")
+    div(style = "text-align: center;", h4(strong("Where was the fish last detected?"))),
+    plotOutput("detect")
   ),
   card_body(
-    div(style = "text-align: center;", h3(strong("Time Spent Occupying Each Habitat"))),
-    plotOutput("box_time"),
-    plotOutput("line_time")
+    div(style = "text-align: center;", h4(strong(title_1))),
+    viz_1,
+    div(style = "text-align: center;", h4(strong(title_2))),
+    viz_2
   )
 )
 
@@ -201,18 +212,26 @@ server <- function(input, output, session) {
       ) %>%
       filter(Total_Min_Detected != 0)
     
+    # sum total habitat transitions per hour
+    hab_trans <- data %>%
+      mutate(Hab_Trans = if_else(Habitat == lag(Habitat), 0, 1),
+             Hab_Trans = replace_na(Hab_Trans, 0)) %>%
+      group_by(Date, Hour) %>%
+      summarise(Tot_Hab_Trans = sum(Hab_Trans, na.rm=TRUE)) %>%
+      mutate(Date_Time_Hour = ymd_h(paste(Date, Hour)))
+    
     # Last detection location
     last_detection <- tail(data$Habitat, 1)
     detect_x <- if (last_detection == habitat_a) 2 else 8.5
     detect_df <- data.table(x = detect_x, y = 1.25)
     
-    list(raw = data, hourly = min_per_hour, detect = detect_df, last_hab = last_detection)
+    list(raw = data, hourly = min_per_hour, transitions = hab_trans, detect = detect_df, last_hab = last_detection)
   })
   
   # ------------------- PLOTS -------------------
   
   # Fish location "slider": where was the fish last detected
-  output$prefer <- renderPlot({
+  output$detect <- renderPlot({
     detect_df <- dataset()$detect
     last_detection <- dataset()$last_hab
     
@@ -256,7 +275,35 @@ server <- function(input, output, session) {
         axis.line=element_line(linewidth=1.5),
         axis.ticks=element_line(linewidth=1.5),
         axis.text=element_text(size=14),
-        axis.title = element_text(size=18),
+        axis.title = element_text(size=16),
+        legend.title = element_text(size=18),
+        legend.text = element_text(size=14),
+        legend.position = "bottom",
+        panel.background= element_blank()
+      )
+  })
+  
+  # Line chart: number of habitat transitions in each hour
+  output$hab_trans <- renderPlot({
+    df <- dataset()$transitions
+    ggplot(df) +
+      geom_point(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow) +
+      geom_line(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow, linewidth=1.5) +
+      
+      scale_x_datetime(date_breaks = "1 hour", date_labels = "%b %d %H") +
+      scale_y_continuous(
+        limits = c((min(df$Tot_Hab_Trans)-1),(max(df$Tot_Hab_Trans)+1)), 
+        labels = scales::label_number(accuracy = 1),
+        breaks = seq((min(df$Tot_Hab_Trans)-1),(max(df$Tot_Hab_Trans)+1),1)) +
+      ylab("# of Transitions") +
+      
+      theme(
+        axis.line=element_line(linewidth=1.5),
+        axis.ticks=element_line(linewidth=1.5),
+        axis.text=element_text(size=14),
+        axis.text.x=element_text(angle = 30, vjust=.9, hjust=0.9),
+        axis.title = element_text(size=16),
+        axis.title.x=element_blank(),
         legend.title = element_text(size=18),
         legend.text = element_text(size=14),
         legend.position = "bottom",
@@ -280,7 +327,7 @@ server <- function(input, output, session) {
         axis.ticks=element_line(linewidth=1.5),
         axis.text=element_text(size=14),
         axis.text.x=element_text(angle = 30, vjust=.9, hjust=0.9),
-        axis.title = element_text(size=18),
+        axis.title = element_text(size=16),
         axis.title.x=element_blank(),
         legend.title = element_text(size=18),
         legend.text = element_text(size=14),
