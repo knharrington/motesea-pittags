@@ -13,8 +13,10 @@ library(shiny)
 library(bslib)
 library(showtext)
 library(thematic)
+#library(vroom)
 
 `%nin%` = Negate(`%in%`)
+#options(dplyr.summarise.inform = FALSE)
 
 # habitats in experiment; change as necessary
 habitat_a = "Red Mangrove"
@@ -147,13 +149,19 @@ server <- function(input, output, session) {
     ORMR.files = list.files(path=paste0("data"), pattern="*.txt", full.names=T)
     
     ##### FOR MULTIREADER DATA #####  
-    # Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify creek, date, and Antenna
+    # Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify location, date, and Antenna
     filenames = as.vector(NA) # create a dummy vector used in the loop
     
     for (i in 1:length(ORMR.files)) {
       file_name = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
       filenames[[i]] = file_name
-      file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16)))
+      
+      # preprocesses to remove null characters that throw a warning (does this before reading the file) REQUIRES GIT BASH INSTALLED
+      file_clean <- tempfile()
+      system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
+      file_df <- read.table(file_clean, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
+      
+      #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16)))
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
       file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=15)
       file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=17, end=-5)
@@ -217,7 +225,7 @@ server <- function(input, output, session) {
       mutate(Hab_Trans = if_else(Habitat == lag(Habitat), 0, 1),
              Hab_Trans = replace_na(Hab_Trans, 0)) %>%
       group_by(Date, Hour) %>%
-      summarise(Tot_Hab_Trans = sum(Hab_Trans, na.rm=TRUE)) %>%
+      summarise(Tot_Hab_Trans = sum(Hab_Trans, na.rm=TRUE), .groups = 'drop') %>%
       mutate(Date_Time_Hour = ymd_h(paste(Date, Hour)))
     
     # Last detection location
