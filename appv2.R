@@ -1,5 +1,7 @@
 # TO DO:
-#   - update UI info to reflect current experiment
+#   - should change naming conventions for the files so that they are ordered automatically by date (19Sep25 --> 2025-09-19)
+# NOTES:
+#   - when locating the last detection, the function will read the last ith file in the main loop which may or may not be the most recent file
 
 ##############################  GLOBAL  ########################################
 library(plyr)
@@ -13,10 +15,20 @@ library(shiny)
 library(bslib)
 library(showtext)
 library(thematic)
-#library(vroom)
 
+############################## FUNCTIONS #######################################
+# function to do the opposite of %in%
 `%nin%` = Negate(`%in%`)
+
+# function to read the last line of a file (requires git bash)
+last_line_unix <- function(filepath) {
+  system(paste("tail -n 1", filepath), intern = TRUE)
+}
+
+# silences dplyr::summarise messages
 #options(dplyr.summarise.inform = FALSE)
+
+############################## OPTIONS #########################################
 
 # habitats in experiment; change as necessary
 habitat_a = "Red Mangrove"
@@ -42,6 +54,7 @@ habitat_b = "Replica Mangrove"
 }
 
 # data visualizations to display; change as necessary (options: box_time, hab_trans, line_time)
+# Note: you may have to adjust titles or title placement
 {
   title_1 = "Number of Times Fish Switched Habitats"
   viz_1 = plotOutput("hab_trans")
@@ -141,6 +154,8 @@ ui <- page_fillable(
 
 server <- function(input, output, session) {
   
+  # ------------------- DATA -------------------
+  
   # Reactive data pipeline that refreshes every 10 seconds
   dataset <- reactive({
     invalidateLater(10000, session)
@@ -156,12 +171,17 @@ server <- function(input, output, session) {
       file_name = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
       filenames[[i]] = file_name
       
-      # preprocesses to remove null characters that throw a warning (does this before reading the file) REQUIRES GIT BASH INSTALLED
+      # # make temporary files so as not to lose original data
       file_clean <- tempfile()
-      system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
-      file_df <- read.table(file_clean, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
+      file_small <- tempfile()
       
-      #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16)))
+      # remove bad characters and filter out "I" detections (does this before reading the file) REQUIRES GIT BASH 
+      system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
+      system2("grep", c("-v", "I", file_clean), stdout = file_small)
+
+      file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
+      #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16))) # this one will throw warnings for NULL bytes
+      
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
       file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=15)
       file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=17, end=-5)
@@ -229,8 +249,12 @@ server <- function(input, output, session) {
       mutate(Date_Time_Hour = ymd_h(paste(Date, Hour)))
     
     # Last detection location
-    last_detection <- tail(data$Habitat, 1)
-    detect_x <- if (last_detection == habitat_a) 2 else 8.5
+    # last_detection <- tail(data$Habitat, 1)
+    last <- last_line_unix(file_clean) # needs git bash to work
+    fields <- str_split(last, "\\s+", simplify = TRUE)
+    last_df <- as.data.table(as.list(fields))
+    last_detection <- last_df$V7
+    detect_x <- if (last_detection == "A1") 2 else 8.5
     detect_df <- data.table(x = detect_x, y = 1.25)
     
     list(raw = data, hourly = min_per_hour, transitions = hab_trans, detect = detect_df, last_hab = last_detection)
@@ -298,11 +322,11 @@ server <- function(input, output, session) {
       geom_point(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow) +
       geom_line(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow, linewidth=1.5) +
       
-      scale_x_datetime(date_breaks = "1 hour", date_labels = "%b %d %H") +
+      scale_x_datetime(date_breaks = "8 hour", date_labels = "%b %d %H") +
       scale_y_continuous(
-        limits = c((min(df$Tot_Hab_Trans)-1),(max(df$Tot_Hab_Trans)+1)), 
+        limits = c(0,(max(df$Tot_Hab_Trans))), 
         labels = scales::label_number(accuracy = 1),
-        breaks = seq((min(df$Tot_Hab_Trans)-1),(max(df$Tot_Hab_Trans)+1),1)) +
+        breaks = seq(0,(max(df$Tot_Hab_Trans)),10)) +
       ylab("# of Transitions") +
       
       theme(
@@ -327,7 +351,7 @@ server <- function(input, output, session) {
       geom_line(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat), linewidth=1.5) +
       scale_color_manual(values = hab_colors) +
       
-      scale_x_datetime(date_breaks = "1 hour", date_labels = "%b %d %H") +
+      scale_x_datetime(date_breaks = "8 hour", date_labels = "%b %d %H") +
       ylab("min/hr") +
       
       theme(
