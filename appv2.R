@@ -22,7 +22,8 @@ library(thematic)
 
 # function to read the last line of a file (requires git bash)
 last_line_unix <- function(filepath) {
-  system(paste("tail -n 1", filepath), intern = TRUE)
+  #system(paste("tail -n 1", filepath), intern = TRUE)
+  system2("tail", c("-n 1", filepath), stdout=TRUE)
 }
 
 # silences dplyr::summarise messages
@@ -31,24 +32,25 @@ last_line_unix <- function(filepath) {
 ############################## OPTIONS #########################################
 
 # habitats in experiment; change as necessary
-habitat_a = "Red Mangrove"
-habitat_b = "Replica Mangrove"
+habitat_a = "Replica Mangrove"
+habitat_b = "Red Mangrove"
 
 # UI information to display; change as necessary (imgs kept in www folder)
 {
   # Habitat A
-  hab_a_name = "Rhizophora mangle"
-  hab_a_img <- img(src="RedMangroveWater.jpg", width="250px")
+  hab_a_name = "Plastic"
+  hab_a_img <- img(src="Replica_Mangrove.jpg", width="225px")
   # Habitat B
-  hab_b_name = "Plastic"
-  hab_b_img <- img(src="Replica_Mangrove.jpg", width="250px")
+  hab_b_name = "Rhizophora mangle"
+  hab_b_img <- img(src="RedMangroveWater.jpg", width="225px")
   # Fish
+  tag_number = "900_209000193086"
   fish_sp = "Centropomus undecimalis"
   fish_cn = "Common Snook"
   fish_age = "11 months"
-  fish_fl = "10 inches"
-  fish_w = "0.7 pounds"
-  fish_img <- img(src="CommonSnook.jpg", width="280px")
+  fish_fl = "163 mm"
+  fish_w = "385 g"
+  fish_img <- img(src="CommonSnook.jpg", width="350px")
   detection_image <- "www/snook_yellow.png"
   #snook_svg <- paste(readLines("www/snook-old.svg"), collapse = "\n") # fill:#ebcc00 (snook yellow)
 }
@@ -77,8 +79,9 @@ habitat_b = "Replica Mangrove"
   manatee_gray = "#b1b3b3"
 }
 
-# colors to assign to each habitat; change as necessary
-hab_colors <- c(mangrove_green, manatee_gray)
+# colors to assign to each habitat; change as necessary (habitat A, habitat B)
+# FYI: this is not automating correctly in ggplot -> change downstream
+hab_colors <- c(manatee_gray, turquoise_bay)
 
 ##############################  UI  ############################################
 
@@ -91,13 +94,13 @@ card1 <- card(
   p(strong("Question:"), "Will our snook use artificial habitats as much as real mangroves?"),
   #br(), #br(),
   div(style = "text-align: center;", h3(strong("About the Habitats"))),
-  p(strong("Common Name: "), habitat_a),
-  p(strong("Species:"), em(hab_a_name)),
-  div(style = "text-align: center", hab_a_img),
+  p(strong("Common Name: "), habitat_b),
+  p(strong("Species:"), em(hab_b_name)),
+  div(style = "text-align: center", hab_b_img),
   #br(),
-  p(strong("Type:"), habitat_b),
-  p(strong("Material: "), hab_b_name),
-  div(style = "text-align: center", hab_b_img)
+  p(strong("Type:"), habitat_a),
+  p(strong("Material: "), hab_a_name),
+  div(style = "text-align: center", hab_a_img)
 )
 
 # column 2: all plots
@@ -125,7 +128,8 @@ card3 <- card(
     p(strong("Species:"), em(fish_sp)),
     p(strong("Age: "), fish_age),
     p(strong("Fork Length: "), fish_fl),
-    p(strong("Weight: "), fish_w)
+    p(strong("Weight: "), fish_w),
+    p(strong("Tag ID: "), tag_number)
   #)
 )
 
@@ -172,12 +176,12 @@ server <- function(input, output, session) {
       filenames[[i]] = file_name
       
       # # make temporary files so as not to lose original data
-      file_clean <- tempfile()
+      #file_clean <- tempfile()
       file_small <- tempfile()
       
       # remove bad characters and filter out "I" detections (does this before reading the file) REQUIRES GIT BASH 
-      system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
-      system2("grep", c("-v", "I", file_clean), stdout = file_small)
+      #system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
+      system2("grep", c("-v", "I", ORMR.files[i]), stdout = file_small)
 
       file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
       #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16))) # this one will throw warnings for NULL bytes
@@ -218,6 +222,7 @@ server <- function(input, output, session) {
     
     # Preprocess
     data <- as.data.table(ORMR.raw) %>%
+      filter(Tag_ID %in% tag_number) %>%
       mutate(
         Bin_Loop = case_when(
           Loop %in% c("Habitat - A1") ~ "A",
@@ -226,7 +231,11 @@ server <- function(input, output, session) {
         Duration_Min = Duration_Sec / 60,
         Hour = hour(Date_Time),
         Day_Night = case_when(Hour >= 7 & Hour < 19 ~ "Day", TRUE ~ "Night"),
-        Habitat = case_when(Bin_Loop == "A" ~ habitat_a, TRUE ~ habitat_b)
+        Habitat = case_when(Bin_Loop == "A" ~ habitat_a, TRUE ~ habitat_b),
+        Date = 
+          case_when(
+            Date %in% c(as.POSIXct("2025-09-23", format="%Y-%m-%d"), as.POSIXct("2025-09-24", format="%Y-%m-%d"), as.POSIXct("2025-09-25", format="%Y-%m-%d")) ~ Date + (5 * 24 * 60 * 60),
+            TRUE ~ Date)
       )
     
     # Summarize per hour
@@ -250,7 +259,7 @@ server <- function(input, output, session) {
     
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(file_clean) # needs git bash to work
+    last <- last_line_unix(ORMR.files[[1]]) # needs git bash to work
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
     last_detection <- last_df$V7
@@ -296,9 +305,10 @@ server <- function(input, output, session) {
   # Boxplot: time spent occupying each habitat
   output$box_time <- renderPlot({
     df <- dataset()$hourly
+    cols <- c("Replica Mangrove" = "#b1b3b3", "Red Mangrove" = "#00ae9d")
     ggplot(df) +
       geom_boxplot(aes(x=Day_Night, y=Total_Min_Detected, color=Habitat), fill=NA, linewidth=1.5) +
-      scale_color_manual(values = hab_colors) +
+      scale_color_manual(values = cols) +
       
       xlab("Time of Day") +
       ylab("min/hr") +
@@ -319,7 +329,7 @@ server <- function(input, output, session) {
   output$hab_trans <- renderPlot({
     df <- dataset()$transitions
     ggplot(df) +
-      geom_point(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow) +
+      #geom_point(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow) +
       geom_line(aes(x=Date_Time_Hour, y=Tot_Hab_Trans), color=snook_yellow, linewidth=1.5) +
       
       scale_x_datetime(date_breaks = "8 hour", date_labels = "%b %d %H") +
@@ -346,12 +356,19 @@ server <- function(input, output, session) {
   # Line chart: time spent occupying each habitat
   output$line_time <- renderPlot({
     df <- dataset()$hourly
+    #cols <- c(habitat_a = hab_colors[[1]], habitat_b = hab_colors[[2]])
+    #cols <- c(habitat_a = manatee_gray, habitat_b = mangrove_green)
+    cols <- c("Replica Mangrove" = "#b1b3b3", "Red Mangrove" = "#00ae9d")
     ggplot(df) +
-      geom_point(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat)) +
+      #geom_point(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat)) +
       geom_line(aes(x=Date_Time_Hour, y=Total_Min_Detected, color=Habitat), linewidth=1.5) +
-      scale_color_manual(values = hab_colors) +
+      scale_color_manual(values = cols) +
       
       scale_x_datetime(date_breaks = "8 hour", date_labels = "%b %d %H") +
+      scale_y_continuous(
+        limits = c(0,(max(df$Total_Min_Detected))), 
+        labels = scales::label_number(accuracy = 1),
+        breaks = seq(0,(max(df$Total_Min_Detected)),10)) +
       ylab("min/hr") +
       
       theme(
@@ -371,6 +388,7 @@ server <- function(input, output, session) {
   # conclusions text & color card (reactive)
   output$conclusion_card <- renderUI({
     df <- dataset()$hourly
+    df <- df[df$Date >= Sys.Date(),]
     
     hab_a_mean <- mean(df$Total_Min_Detected[df$Bin_Loop=="A"], na.rm=TRUE)
     hab_b_mean <- mean(df$Total_Min_Detected[df$Bin_Loop=="B"], na.rm=TRUE)
@@ -387,7 +405,7 @@ server <- function(input, output, session) {
       ),
       card_body(
         class = "text-center",
-        h4(paste0("This fish prefers the ", tolower(conc_text), " habitat."))
+        h4(paste0("Today the tagged fish prefers the ", tolower(conc_text), " habitat."))
       )
     )
   })
