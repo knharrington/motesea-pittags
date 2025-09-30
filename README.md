@@ -1,6 +1,6 @@
 # motesea-pittags
 
-<img width="1915" height="988" alt="snook_appui2" src="https://github.com/user-attachments/assets/c8445f91-843a-4ca8-8875-81ab4cda1728" />
+<img width="1676" height="961" alt="snook_app" src="https://github.com/user-attachments/assets/500b8452-ed51-4059-bfc9-aa86a75fa399" />
 
 Shiny app for real-time monitoring of PIT tag data in an aquarium setting.
 
