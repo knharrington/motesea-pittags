@@ -1,7 +1,7 @@
 # TO DO:
 #   - should change naming conventions for the files so that they are ordered automatically by date (19Sep25 --> 2025-09-19)
 # NOTES:
-#   - when locating the last detection, the function will read the last ith file in the main loop which may or may not be the most recent file
+#   - 
 
 ##############################  GLOBAL  ########################################
 library(plyr)
@@ -181,7 +181,7 @@ server <- function(input, output, session) {
       
       # remove bad characters and filter out "I" detections (does this before reading the file) REQUIRES GIT BASH 
       #system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
-      system2("grep", c("-v", "I", ORMR.files[i]), stdout = file_small)
+      system2("grep", c("--text", "-v", "I", ORMR.files[i]), stdout = file_small)
 
       file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
       #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16))) # this one will throw warnings for NULL bytes
@@ -211,13 +211,15 @@ server <- function(input, output, session) {
     # NOTE that Number consecutive detections seems to be missing (between 9 and 10)
     ORMR.raw$Loop = paste(ORMR.raw$Antenna, "-", ORMR.raw$Loop)
     
-    ORMR.raw$Date_Time <- ymd_hms(paste(ORMR.raw$Date, ORMR.raw$Time))
     ORMR.raw$Date <- as.POSIXct(ORMR.raw$Date, format="%Y-%m-%d")
+    #ORMR.raw$Time <- hms(ORMR.raw$Time)
+    ORMR.raw$Duration <- as.numeric(hms(ORMR.raw$Duration))
+    ORMR.raw$Date_Time <- ymd_hms(paste(ORMR.raw$Date, ORMR.raw$Time))
     
     # subset for date
     #ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
     current_date <- Sys.Date()
-    start_date <- current_date - 7
+    start_date <- current_date - 11  #NEEDS TO BE 7, but setting to 10 for now
     ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= current_date)
     
     # Preprocess
@@ -227,7 +229,8 @@ server <- function(input, output, session) {
         Bin_Loop = case_when(
           Loop %in% c("Habitat - A1") ~ "A",
           TRUE ~ "B"),
-        Duration_Sec = period_to_seconds(hms(Duration)),
+        #Duration_Sec = period_to_seconds(hms(Duration)),
+        Duration_Sec = Duration,
         Duration_Min = Duration_Sec / 60,
         Hour = hour(Date_Time),
         Day_Night = case_when(Hour >= 7 & Hour < 19 ~ "Day", TRUE ~ "Night"),
@@ -237,6 +240,10 @@ server <- function(input, output, session) {
             Date %in% c(as.POSIXct("2025-09-23", format="%Y-%m-%d"), as.POSIXct("2025-09-24", format="%Y-%m-%d"), as.POSIXct("2025-09-25", format="%Y-%m-%d")) ~ Date + (5 * 24 * 60 * 60),
             TRUE ~ Date)
       )
+    
+    #Trim data back to 7 days now that Date data is fixes
+    new_start_date <- current_date - 7  #NEEDS TO BE 7, but setting to 10 for now
+    data <- subset(data, Date >= new_start_date & Date <= current_date)
     
     # Summarize per hour
     min_per_hour <- data %>%
@@ -259,7 +266,7 @@ server <- function(input, output, session) {
     
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(ORMR.files[[1]]) # needs git bash to work
+    last <- last_line_unix(ORMR.files[[length(ORMR.files)]]) # needs git bash to work
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
     last_detection <- last_df$V7
