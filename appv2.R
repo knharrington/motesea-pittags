@@ -26,9 +26,6 @@ last_line_unix <- function(filepath) {
   system2("tail", c("-n 1", filepath), stdout=TRUE)
 }
 
-# silences dplyr::summarise messages
-#options(dplyr.summarise.inform = FALSE)
-
 ############################## OPTIONS #########################################
 
 # habitats in experiment; change as necessary
@@ -167,13 +164,13 @@ server <- function(input, output, session) {
     # Get the file names of all the raw txt files saved in the folder of data to be imported (change path as necessary)
     ORMR.files = list.files(path=paste0("data"), pattern="*.txt", full.names=T)
     
-    ##### FOR MULTIREADER DATA #####  
+    ##### FOR MULTI-FILE DATA #####  
     # Use a loop to create a raw dataframe for each file in the folder to be imported and create columns in the dataframe to specify location, date, and Antenna
     filenames = as.vector(NA) # create a dummy vector used in the loop
     
     for (i in 1:length(ORMR.files)) {
-      file_name = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
-      filenames[[i]] = file_name
+      file_name <- str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
+      filenames[[i]] <- file_name
       
       # # make temporary files so as not to lose original data
       #file_clean <- tempfile()
@@ -186,6 +183,10 @@ server <- function(input, output, session) {
       file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
       #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16))) # this one will throw warnings for NULL bytes
       
+      # Delete temporary file after reading it
+      unlink(file_small)
+      
+      # Extract info from file names
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
       file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=15)
       file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=17, end=-5)
@@ -264,6 +265,12 @@ server <- function(input, output, session) {
       summarise(Tot_Hab_Trans = sum(Hab_Trans, na.rm=TRUE), .groups = 'drop') %>%
       mutate(Date_Time_Hour = ymd_h(paste(Date, Hour)))
     
+    list(raw = data, hourly = min_per_hour, transitions = hab_trans)
+  })
+  
+  last_detection <- reactive({
+    invalidateLater(5000, session)
+    
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
     last <- last_line_unix(ORMR.files[[length(ORMR.files)]]) # needs git bash to work
@@ -273,15 +280,16 @@ server <- function(input, output, session) {
     detect_x <- if (last_detection == "A1") 2 else 8.5
     detect_df <- data.table(x = detect_x, y = 1.25)
     
-    list(raw = data, hourly = min_per_hour, transitions = hab_trans, detect = detect_df, last_hab = last_detection)
+    list(detect = detect_df, last_hab = last_detection)
+    
   })
   
   # ------------------- PLOTS -------------------
   
   # Fish location "slider": where was the fish last detected
   output$detect <- renderPlot({
-    detect_df <- dataset()$detect
-    last_detection <- dataset()$last_hab
+    detect_df <- last_detection()$detect
+    last_detection <- last_detection()$last_hab
     
     ggplot(detect_df) +
       geom_point(aes(x=1,y=1), color="transparent") +
@@ -395,7 +403,15 @@ server <- function(input, output, session) {
   # conclusions text & color card (reactive)
   output$conclusion_card <- renderUI({
     df <- dataset()$hourly
-    df <- df[df$Date >= Sys.Date(),]
+    #df <- min_per_hour
+    
+    if (max(df$Date) == Sys.Date()) {
+      df <- df[df$Date >= Sys.Date(),]
+      pref_text <- "Today the tagged"
+    } else {
+      df <- df
+      pref_text <- "The tagged"
+    }
     
     hab_a_mean <- mean(df$Total_Min_Detected[df$Bin_Loop=="A"], na.rm=TRUE)
     hab_b_mean <- mean(df$Total_Min_Detected[df$Bin_Loop=="B"], na.rm=TRUE)
@@ -412,7 +428,7 @@ server <- function(input, output, session) {
       ),
       card_body(
         class = "text-center",
-        h4(paste0("Today the tagged fish prefers the ", tolower(conc_text), " habitat."))
+        h4(paste0(pref_text, " fish prefers the ", tolower(conc_text), " habitat."))
       )
     )
   })
