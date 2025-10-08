@@ -23,7 +23,7 @@ library(thematic)
 # function to read the last line of a file (requires git bash)
 last_line_unix <- function(filepath) {
   #system(paste("tail -n 1", filepath), intern = TRUE)
-  system2("tail", c("-n 1", filepath), stdout=TRUE)
+  system2("tail", c("-n 2", filepath), stdout=TRUE)
 }
 
 # silences dplyr::summarise messages
@@ -219,7 +219,7 @@ server <- function(input, output, session) {
     # subset for date
     #ORMR.raw <- subset(ORMR.raw, Date >= "2023-10-01" & Date <= "2023-10-07")
     current_date <- Sys.Date()
-    start_date <- current_date - 11  #NEEDS TO BE 7, but setting to 10 for now
+    start_date <- current_date - 17  #NEEDS TO BE 7, but setting to 10 for now
     ORMR.raw <- subset(ORMR.raw, Date >= start_date & Date <= current_date)
     
     # Preprocess
@@ -237,7 +237,16 @@ server <- function(input, output, session) {
         Habitat = case_when(Bin_Loop == "A" ~ habitat_a, TRUE ~ habitat_b),
         Date = 
           case_when(
-            Date %in% c(as.POSIXct("2025-09-23", format="%Y-%m-%d"), as.POSIXct("2025-09-24", format="%Y-%m-%d"), as.POSIXct("2025-09-25", format="%Y-%m-%d")) ~ Date + (5 * 24 * 60 * 60),
+            Date %in% c(as.POSIXct("2025-09-23", format="%Y-%m-%d"), as.POSIXct("2025-09-24", format="%Y-%m-%d"), as.POSIXct("2025-09-25", format="%Y-%m-%d")) ~ Date + (11 * 24 * 60 * 60),
+            TRUE ~ Date),
+        ,
+        Hour = 
+          case_when(
+            Date %in% as.POSIXct("2025-09-22", format="%Y-%m-%d") ~ Hour-6,
+            TRUE ~ Hour),
+        Date = 
+          case_when(
+            Date %in% as.POSIXct("2025-09-22", format="%Y-%m-%d") ~ as.POSIXct("2025-10-2", format="%Y-%m-%d"),
             TRUE ~ Date)
       )
     
@@ -267,6 +276,7 @@ server <- function(input, output, session) {
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
     last <- last_line_unix(ORMR.files[[length(ORMR.files)]]) # needs git bash to work
+    last <- last[[1]]
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
     last_detection <- last_df$V7
