@@ -1,5 +1,5 @@
 # TO DO:
-#   - should change naming conventions for the files so that they are ordered automatically by date (19Sep25 --> 2025-09-19)
+#   - 
 # NOTES:
 #   - 
 
@@ -134,7 +134,7 @@ card3 <- card(
 thematic::thematic_shiny(font="auto")
 
 ui <- page_fillable(
-  theme = bs_theme(version=5, bootswatch = "superhero", bg=abyssal_blue, fg="#ffffff"), #theme,
+  theme = bs_theme(version=5, bootswatch = "superhero", bg=abyssal_blue, fg="#ffffff"), 
   #input_dark_mode(),
   
   div(style = "text-align: center;", h1(strong("Fisheries Ecology & Enhancement:"), "Habitat Choice Experiment")),
@@ -172,7 +172,7 @@ server <- function(input, output, session) {
       file_name <- str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
       filenames[[i]] <- file_name
       
-      # # make temporary files so as not to lose original data
+      # make temporary files so as not to lose original data
       #file_clean <- tempfile()
       file_small <- tempfile()
       
@@ -186,15 +186,15 @@ server <- function(input, output, session) {
       # Delete temporary file after reading it
       unlink(file_small)
       
-      # Extract info from file names
+      # Extract info from file names in format: data/MS_YYYY-MM-DD_Habitat.txt
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
-      file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=15)
-      file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=17, end=-5)
+      file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=18)
+      file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=20, end=-5)
       assign(file_name, file_df, envir = .GlobalEnv)
     }
     
     # Identify the PIT tag data in each dataframe, merge them, and relabeled columns appropriately
-    dflist =as.list(NA) # creates a dummy list that the loop below can fill with all the dataframes
+    dflist = as.list(NA) # creates a dummy list that the loop below can fill with all the dataframes
     PITlist = as.list(NA) # creates a dummy list to fill with the PIT tag data within the list of dataframes
     Errorlist = as.list(NA)
     
@@ -240,7 +240,6 @@ server <- function(input, output, session) {
           case_when(
             Date %in% c(as.POSIXct("2025-09-23", format="%Y-%m-%d"), as.POSIXct("2025-09-24", format="%Y-%m-%d"), as.POSIXct("2025-09-25", format="%Y-%m-%d")) ~ Date + (11 * 24 * 60 * 60),
             TRUE ~ Date),
-        ,
         Hour = 
           case_when(
             Date %in% as.POSIXct("2025-09-22", format="%Y-%m-%d") ~ Hour-6,
@@ -277,16 +276,18 @@ server <- function(input, output, session) {
     list(raw = data, hourly = min_per_hour, transitions = hab_trans)
   })
   
+  # Last detection location
   last_detection <- reactive({
     invalidateLater(5000, session)
     
-    # Last detection location
-    # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(ORMR.files[[length(ORMR.files)]]) # needs git bash to work
+    ORMR.files = list.files(path=paste0("data"), pattern="*.txt", full.names=T)
+    
+    last <- last_line_unix(ORMR.files[[length(ORMR.files)]])
     last <- last[[1]]
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
     last_detection <- last_df$V7
+    
     detect_x <- if (last_detection == "A1") 2 else 8.5
     detect_df <- data.table(x = detect_x, y = 1.25)
     
