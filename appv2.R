@@ -1,5 +1,5 @@
 # TO DO:
-#   - should change naming conventions for the files so that they are ordered automatically by date (19Sep25 --> 2025-09-19)
+#   - 
 # NOTES:
 #   - 
 
@@ -186,10 +186,10 @@ server <- function(input, output, session) {
       # Delete temporary file after reading it
       unlink(file_small)
       
-      # Extract info from file names
+      # Extract info from file names in format: data/MS_YYYY-MM-DD_Habitat.txt
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
-      file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=15)
-      file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=17, end=-5)
+      file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=18)
+      file_df$Antenna = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=20, end=-5)
       assign(file_name, file_df, envir = .GlobalEnv)
     }
     
@@ -284,7 +284,7 @@ server <- function(input, output, session) {
     
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(ORMR.files[[1]])  # needs git bash to work
+    last <- last_line_unix(ORMR.files[[length(ORMR.files)]])  # needs git bash to work
     last <- last[[1]]
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
