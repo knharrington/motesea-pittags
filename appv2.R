@@ -284,7 +284,7 @@ server <- function(input, output, session) {
     
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(ORMR.files[[1]]) # needs git bash to work
+    last <- last_line_unix(ORMR.files[[1]])  # needs git bash to work
     last <- last[[1]]
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
