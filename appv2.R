@@ -28,18 +28,18 @@ last_line_unix <- function(filepath) {
 
 ############################## OPTIONS #########################################
 
-# habitats in experiment; change as necessary
-habitat_a = "Replica Mangrove"
-habitat_b = "Red Mangrove"
+# habitats in experiment; change as necessary (INCLUDING AT LINE 81 and 345) also remember to change UI information (lines 85-100)
+habitat_a = "Red Mangrove"
+habitat_b = "Replica Mangrove"
 
 # UI information to display; change as necessary (imgs kept in www folder)
 {
   # Habitat A
-  hab_a_name = "Plastic"
-  hab_a_img <- img(src="Replica_Mangrove.jpg", width="225px")
+  hab_a_name = "Rhizophora mangle"
+  hab_a_img <- img(src="RedMangroveWater.jpg", width="225px")
   # Habitat B
-  hab_b_name = "Rhizophora mangle"
-  hab_b_img <- img(src="RedMangroveWater.jpg", width="225px")
+  hab_b_name = "Plastic"
+  hab_b_img <- img(src="Replica_Mangrove.jpg", width="225px")
   # Fish
   tag_number = "900_209000193086"
   fish_sp = "Centropomus undecimalis"
@@ -77,8 +77,8 @@ habitat_b = "Red Mangrove"
 }
 
 # colors to assign to each habitat; change as necessary (habitat A, habitat B)
-# FYI: this is not automating correctly in ggplot -> change downstream
-hab_colors <- c(manatee_gray, turquoise_bay)
+# FYI: this is not automating correctly in ggplot -> change downstream (~line 345)
+hab_colors <- c(turquoise_bay, manatee_gray)
 
 ##############################  UI  ############################################
 
@@ -91,13 +91,13 @@ card1 <- card(
   p(strong("Question:"), "Will our snook use artificial habitats as much as real mangroves?"),
   #br(), #br(),
   div(style = "text-align: center;", h3(strong("About the Habitats"))),
-  p(strong("Common Name: "), habitat_b),
-  p(strong("Species:"), em(hab_b_name)),
-  div(style = "text-align: center", hab_b_img),
+  p(strong("Common Name: "), habitat_a),
+  p(strong("Species:"), em(hab_a_name)),
+  div(style = "text-align: center", hab_a_img),
   #br(),
-  p(strong("Type:"), habitat_a),
-  p(strong("Material: "), hab_a_name),
-  div(style = "text-align: center", hab_a_img)
+  p(strong("Type:"), habitat_b),
+  p(strong("Material: "), hab_b_name),
+  div(style = "text-align: center", hab_b_img)
 )
 
 # column 2: all plots
@@ -126,7 +126,8 @@ card3 <- card(
     p(strong("Age: "), fish_age),
     p(strong("Fork Length: "), fish_fl),
     p(strong("Weight: "), fish_w),
-    p(strong("Tag ID: "), tag_number)
+    p(strong("Tag ID: "), tag_number),
+    p(strong("Last Updated: "), "October 2025")
   #)
 )
 
@@ -169,23 +170,27 @@ server <- function(input, output, session) {
     filenames = as.vector(NA) # create a dummy vector used in the loop
     
     for (i in 1:length(ORMR.files)) {
+      #i=1
       file_name <- str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=-5)
       filenames[[i]] <- file_name
       
       # # make temporary files so as not to lose original data
-      #file_clean <- tempfile()
-      file_small <- tempfile()
+      #file_small <- tempfile()
       
       # remove bad characters and filter out "I" detections (does this before reading the file) REQUIRES GIT BASH 
       #system2("tr", c("-d", "'\\000'"), stdin = ORMR.files[i], stdout = file_clean) # calls Unix command-line tool to translate/delete null bytes
-      system2("grep", c("--text", "-v", "I", ORMR.files[i]), stdout = file_small)
-
-      file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
+      #system2("grep", c("--text", "-v", "I", ORMR.files[i]), stdout = file_small)
+      
+      file_df <- fread(ORMR.files[i], header = FALSE, fill=16, col.names = paste0("V", seq_len(16)))
+      
+      file_df <- file_df %>% filter(!grepl("I", V1))
+      
+      #file_df <- read.table(file_small, header = FALSE, fill = TRUE, col.names = paste0("V", seq_len(16)))
       #file_df = read.table(ORMR.files[i], header=F, fill=T, col.names = paste0("V", seq_len(16))) # this one will throw warnings for NULL bytes
       
-      # Delete temporary file after reading it
-      unlink(file_small)
-      
+      # # Delete temporary file after reading it
+      # unlink(file_small)
+      # 
       # Extract info from file names in format: data/MS_YYYY-MM-DD_Habitat.txt
       file_df$System = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=6, end=7)
       file_df$ReadDate = str_sub(str_extract(ORMR.files[i], "data/[[:graph:]]+"),start=9, end=18)
@@ -228,7 +233,7 @@ server <- function(input, output, session) {
       filter(Tag_ID %in% tag_number) %>%
       mutate(
         Bin_Loop = case_when(
-          Loop %in% c("Habitat - A1") ~ "A",
+          grepl("A1",Loop) ~ "A",
           TRUE ~ "B"),
         #Duration_Sec = period_to_seconds(hms(Duration)),
         Duration_Sec = Duration,
@@ -284,8 +289,11 @@ server <- function(input, output, session) {
     
     # Last detection location
     # last_detection <- tail(data$Habitat, 1)
-    last <- last_line_unix(ORMR.files[[length(ORMR.files)]])  # needs git bash to work
-    last <- last[[1]]
+    # last <- last_line_unix(ORMR.files[[length(ORMR.files)]])  # needs git bash to work
+    # last <- last[[1]]
+    
+    last <- last(fread(ORMR.files[[length(ORMR.files)]], fill=13))
+    
     fields <- str_split(last, "\\s+", simplify = TRUE)
     last_df <- as.data.table(as.list(fields))
     last_detection <- last_df$V7
